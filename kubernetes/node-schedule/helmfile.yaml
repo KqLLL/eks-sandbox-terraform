@@ -1,0 +1,24 @@
+repositories:
+  - name: karpenter
+    url: https://charts.karpenter.sh
+  - name: jetstack
+    url: https://charts.jetstack.io
+
+releases:
+  - name: karpenter
+    namespace: karpenter
+    chart: karpenter/karpenter
+    version: '*'
+    values:
+      - values/karpenter/values.yaml
+
+  - name: cert-manager
+    namespace: cert-manager
+    chart: jetstack/cert-manager
+    version: '1.9.1'
+    values:
+      - values/cert-manager/values.yaml
+      - global:
+          leaderElection:
+            # Override the namespace used to store the ConfigMap for leader election
+            namespace: cert-manager

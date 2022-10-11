@@ -1,0 +1,35 @@
+## Ref: https://github.com/aws/karpenter/blob/v0.6.4/charts/karpenter/values.yaml
+serviceAccount:
+  # Annotations to add to the service account
+  # If not set and create is true, a name is generated using the fullname template.
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::225101388789:role/sandbox.karpenter-controller"
+
+# -- Cluster name.
+clusterName: "sandbox"
+
+aws:
+  # -- The default instance profile to use when launching nodes on AWS
+  defaultInstanceProfile: "KarpenterNodeInstanceProfile-sandbox"
+
+replicas: 1
+
+# -- Cluster endpoint.
+clusterEndpoint: "https://5A64D31B8355E255BFAB03BFE3377B1C.gr7.us-east-2.eks.amazonaws.com"
+
+controller:
+  resources:
+    requests:
+      cpu: 0.2
+      memory: 1664Mi # 2048Mi - 128Mi (webhook container memory) - 256Mi (Fargate adds 256 MB to each pod's memory reservation for the required Kubernetes components)
+    limits:
+      cpu: 0.2
+      memory: 1664Mi
+webhook:
+  resources:
+    requests:
+      cpu: 0.05
+      memory: 128Mi
+    limits:
+      cpu: 0.05
+      memory: 128Mi

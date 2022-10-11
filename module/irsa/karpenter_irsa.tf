@@ -1,13 +1,13 @@
 module "karpenter_irsa" {
   count = var.karpenter_enabled ? 1 : 0
 
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.3.0"
-
-  role_name                          = "karpenter-controller-${var.cluster_name}"
+  source                             = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version                            = "~> 5.3.0"
+  create_role                        = true
+  role_name                          = "${var.cluster_name}.karpenter-controller"
   attach_karpenter_controller_policy = true
 
-  karpenter_tag_key                       = "karpenter.sh/discovery/${var.cluster_name}"
+  karpenter_tag_key               = "karpenter.sh/discovery/${var.cluster_name}"
   karpenter_controller_cluster_id         = var.cluster_name
   karpenter_controller_node_iam_role_arns = var.karpenter_role_arns
 

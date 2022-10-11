@@ -7,9 +7,10 @@ data "aws_eks_addon_version" "latest_kube_proxy" {
 module "irsa" {
   source = "../../module/irsa"
 
-  cluster_name        = local.cluster_name
-  cluster_version     = local.cluster_version
-  oidc_provider_arn   = module.eks.oidc_provider_arn
+  cluster_name      = local.cluster_name
+  cluster_version   = local.cluster_version
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  karpenter_enabled = true
   karpenter_role_arns = [module.eks.eks_managed_node_groups["karpenter"].iam_role_arn]
 }
 
@@ -74,31 +75,78 @@ module "eks" {
   }
 
   node_security_group_tags = {
-    # NOTE - if creating multiple security groups with this module, only tag the
-    # security group that Karpenter should utilize with the following tag
+    # NOTE - Karpenter should use SG with the following tags.
     # (i.e. - at most, only one security group should have this tag in your account)
     "karpenter.sh/discovery/${local.cluster_name}" = local.cluster_name
   }
 
-  eks_managed_node_groups = {
-    karpenter = {
-      instance_types        = ["t3a.large"]
-      create_security_group = false
+  eks_managed_node_group_defaults = {
+    capacity_type = "SPOT"
 
-      min_size     = 0
-      max_size     = 1
-      desired_size = 1
+    ami_type = "BOTTLEROCKET_x86_64"
+    platform = "bottlerocket"
+
+    create_security_group = false
+
+    update_launch_template_default_version = true
+    instance_types                         = local.instance_types
+
+    iam_role_attach_cni_policy = false
+    # Launch template
+    create_launch_template = true
+    block_device_mappings = {
+      # https://github.com/bottlerocket-os/bottlerocket#default-volumes
+      # root volume
+      xvda = {
+        device_name = "/dev/xvda"
+        ebs = {
+          volume_size           = 10
+          volume_type           = "gp3"
+          delete_on_termination = true
+        }
+      }
+      # data volume
+      xvdb = {
+        device_name = "/dev/xvdb"
+        ebs = {
+          volume_size           = 20
+          volume_type           = "gp3"
+          delete_on_termination = true
+        }
+      }
     }
-    subnet_ids = [module.vpc.public_subnets]
 
-    iam_role_additional_policies = [
-      # Required by Karpenter
-      "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
-    ]
+    metadata_options = {
+      http_endpoint               = "enabled"
+      http_tokens                 = "optional"
+      http_put_response_hop_limit = 2
+    }
 
-    tags = {
-      # This will tag the launch template created for use by Karpenter
-      "karpenter.sh/discovery/${local.cluster_name}" = local.cluster_name
+    update_config = {
+      max_unavailable_percentage = 50
+    }
+
+  }
+
+  eks_managed_node_groups = {
+    ## The 'karpenter' node_management_group is a placeholder.
+    ## It will provide node role and auth-role mapping for karpenter controller in the EKS cluster.
+    "karpenter" = {
+      desired_size   = 1
+      min_size       = 0
+      max_size       = 1
+      instance_types = local.instance_types
+
+      iam_role_additional_policies = [
+        # Required by Karpenter
+        "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      ]
+
+      tags = {
+        # Ref: https://karpenter.sh/v0.16.1/getting-started/getting-started-with-terraform/#create-a-cluster
+        # This will tag the launch template created for use by Karpenter
+        "karpenter.sh/discovery/${local.cluster_name}" = local.cluster_name
+      }
     }
   }
 }
